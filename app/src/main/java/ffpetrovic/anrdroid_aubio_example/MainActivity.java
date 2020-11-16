@@ -6,7 +6,6 @@ import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.TextView;
 
 import java.util.Map;
 
@@ -14,6 +13,7 @@ import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import ffpetrovic.anrdroid_aubio_example.databinding.ActivityMainBinding;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -34,22 +34,20 @@ public class MainActivity extends AppCompatActivity {
     Thread audioThread;
 
     ActivityResultLauncher<String[]> launcher;
-    private View btPermission;
-    private View btStop;
+    ActivityMainBinding activityMainBinding;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        btPermission = findViewById(R.id.bt_permission);
-        btStop = findViewById(R.id.bt_stop);
-        btPermission.setOnClickListener(new View.OnClickListener() {
+        activityMainBinding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(activityMainBinding.getRoot());
+        activityMainBinding.btPermission.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 requestPermission();
             }
         });
-        btStop.setOnClickListener(new View.OnClickListener() {
+        activityMainBinding.btStop.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 stopRecord();
@@ -59,12 +57,15 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onActivityResult(Map<String, Boolean> result) {
                 if (result.containsValue(true)) {
-                    btPermission.setVisibility(View.GONE);
+                    activityMainBinding.btPermission.setVisibility(View.GONE);
+                    activityMainBinding.btStop.setVisibility(View.VISIBLE);
 
                     init();
                     start();
                 } else {
-                    btPermission.setVisibility(View.VISIBLE);
+                    activityMainBinding.btPermission.setVisibility(View.VISIBLE);
+                    activityMainBinding.btStop.setVisibility(View.GONE);
+
                 }
             }
         });
@@ -72,8 +73,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void stopRecord() {
-        btPermission.setVisibility(View.VISIBLE);
-        btStop.setVisibility(View.GONE);
+        activityMainBinding.btPermission.setVisibility(View.VISIBLE);
+        activityMainBinding.btStop.setVisibility(View.GONE);
         if (isRecording) {
             isRecording = false;
             if (audioRecord != null) {
@@ -132,11 +133,16 @@ public class MainActivity extends AppCompatActivity {
         while (isRecording && audioThread != null && !audioThread.isInterrupted()) {
             amountRead = audioRecord.read(intermediaryBuffer, 0, readSize);
             buffer = shortArrayToFloatArray(intermediaryBuffer);
-            final float frequency = getPitch(buffer);
+            final float dbValue = getDBValue(buffer);
+            final float frequency = dbValue > 45 ? getPitch(buffer) : 0f;
+
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    ((TextView) findViewById(R.id.pitchView)).setText(String.valueOf(frequency));
+                    activityMainBinding.pitchView.setText(String.format("当前频率:%s", frequency) + "\n" + String.format(String.format("分贝:%s", dbValue)));
+                    if (frequency > 20) {
+                        activityMainBinding.lastPitchView.setText(String.format("上次频率%s", frequency));
+                    }
                 }
             });
         }
@@ -158,7 +164,11 @@ public class MainActivity extends AppCompatActivity {
 
     private native float getPitch(float[] input);
 
-    private native void initPitch(int sampleRate, int B);
+    private native float getDBValue(float[] input);
+
+    // 44100,4096
+    private native void initPitch(int sampleRate, int bufferSize);
+
 
     private native void cleanupPitch();
 }

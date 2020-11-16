@@ -90,6 +90,24 @@ jfloat Java_ffpetrovic_anrdroid_1aubio_1example_MainActivity_getPitch(JNIEnv * e
     }
     return freq;
 }
+jfloat Java_ffpetrovic_anrdroid_1aubio_1example_MainActivity_getDBValue(JNIEnv * env, jobject obj, jfloatArray inputArray)
+{
+    fvec_t *input = (fvec_t *) (*env)->GetLongField(env, obj, getInputFieldId(env, obj));
+
+    jsize len = (*env)->GetArrayLength(env, inputArray);
+    if(len != input->length) {
+        return len;
+    }
+
+    jfloat *body = (*env)->GetFloatArrayElements(env, inputArray, 0);
+    // 1. copy inputArray to fvec_t* input (can be optimised)
+    for(u_int i = 0; i < len; i++) {
+        fvec_set_sample(input, body[i], i);
+    }
+    (*env)->ReleaseFloatArrayElements(env, inputArray, body, 0);
+
+    return aubio_db_spl(input);
+}
 
 void Java_ffpetrovic_anrdroid_1aubio_1example_MainActivity_cleanupPitch(JNIEnv * env, jobject obj)
 {
